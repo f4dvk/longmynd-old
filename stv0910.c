@@ -54,9 +54,9 @@ uint8_t stv0910_read_car_freq(uint8_t demod, int32_t *cf) {
     /* first off we read in the carrier offset as a signed number */
                            err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ?
                                             RSTV0910_P2_CFR2 : RSTV0910_P1_CFR2, &val_h); /* high byte*/
-    if (err==ERROR_NONE) err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? 
+    if (err==ERROR_NONE) err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ?
                                             RSTV0910_P2_CFR1 : RSTV0910_P1_CFR1, &val_m); /* mid */
-    if (err==ERROR_NONE) err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? 
+    if (err==ERROR_NONE) err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ?
                                             RSTV0910_P2_CFR0 : RSTV0910_P1_CFR0, &val_l); /* low */
     /* since this is a 24 bit signed value, we need to build it as a 24 bit value, shift it up to the top
        to get a 32 bit signed value, then convert it to a double */
@@ -357,10 +357,16 @@ uint8_t stv0910_setup_carrier_loop(uint8_t demod) {
 
     printf("Flow: Setup carrier loop %i\n", demod);
 
+    stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRUP0 : RSTV0910_P1_CFRUP0), (uint8_t)(25 & 0xFF));
+    stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRUP1 : RSTV0910_P1_CFRUP1), (uint8_t)(25 >> 8));
+
+    stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRLOW0 : RSTV0910_P1_CFRLOW0), (uint8_t)(-25 & 0xFF));
+    stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRLOW1 : RSTV0910_P1_CFRLOW1), (uint8_t)(-25 >> 8));
+
     /* start at 0 offset */
                          err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRINIT0 : RSTV0910_P1_CFRINIT0), 0);
     if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRINIT1 : RSTV0910_P1_CFRINIT1), 0);
- 
+
     return err;
 }
 
@@ -399,7 +405,7 @@ uint8_t stv0910_setup_timing_loop(uint8_t demod, uint32_t sr) {
 /*  return: error state                                                                               */
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
-    uint16_t sr_reg; 
+    uint16_t sr_reg;
 
     printf("Flow: Setup timing loop %i\n", demod);
 
@@ -418,25 +424,25 @@ uint8_t stv0910_setup_timing_loop(uint8_t demod, uint32_t sr) {
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_setup_ts(uint8_t demod) {
 /* -------------------------------------------------------------------------------------------------- */
-/* format with or without sync and header bytes TSINSDELH                                             */ 
-/*   output rate manual or auto adjust                                                                */ 
-/*   control with TSCFX                                                                               */ 
-/*   serial or paralled TSCFGH.PxTSFIFO_SERIAL (serial is on D7) 2 control bits                       */ 
-/*   configure bus to low impedance (high Z on reset) OUTCFG                                          */ 
-/*   DPN (data valid/parity negated) is high when FEC is outputting data                              */ 
-/*      low when redundant data is out[ut eq parity data or rate regulation stuffing bits)            */ 
-/*   Data is regulated by CLKOUT and DPN: either data valid or envelope.                              */ 
-/*     data valid uses continuous clock and select valid data using DPN                               */ 
-/*     envelope: DPN still indicates valid data and then punctured clock for rate regulation          */ 
-/*     TSCFGH.TSFIFO_DVBCI=1 for data and 0 for envelope.                                             */ 
-/*   CLKOUT polarity bit XOR, OUTCFG2.TS/2_CLKOUT_XOR=0 valid rising (=1 for falling).                */ 
+/* format with or without sync and header bytes TSINSDELH                                             */
+/*   output rate manual or auto adjust                                                                */
+/*   control with TSCFX                                                                               */
+/*   serial or paralled TSCFGH.PxTSFIFO_SERIAL (serial is on D7) 2 control bits                       */
+/*   configure bus to low impedance (high Z on reset) OUTCFG                                          */
+/*   DPN (data valid/parity negated) is high when FEC is outputting data                              */
+/*      low when redundant data is out[ut eq parity data or rate regulation stuffing bits)            */
+/*   Data is regulated by CLKOUT and DPN: either data valid or envelope.                              */
+/*     data valid uses continuous clock and select valid data using DPN                               */
+/*     envelope: DPN still indicates valid data and then punctured clock for rate regulation          */
+/*     TSCFGH.TSFIFO_DVBCI=1 for data and 0 for envelope.                                             */
+/*   CLKOUT polarity bit XOR, OUTCFG2.TS/2_CLKOUT_XOR=0 valid rising (=1 for falling).                */
 /*   TSFIFOMANSPEED controlls data rate (padding). 0x11 manual, 0b00 fully auto. speed is TSSPEE      */
-/*     if need square clock, TSCFGH.TSFIFO_DUTY50.                                                    */ 
-/*   parallel mode is ST back end. CLKOUT held (TSCFGH.TSINFO_DBCI) for unknown data section          */ 
-/*     or DVB-CI: DRN is help (CLKOUTnCFG.CLKOUT_XOR) for unknown data section                        */ 
-/*   in both STRUT is high for first byte of packet                                                   */ 
-/*   rate compensation is TSCFGH.TSFIFO_DVBCI                                                         */ 
-/*                                                                                                    */ 
+/*     if need square clock, TSCFGH.TSFIFO_DUTY50.                                                    */
+/*   parallel mode is ST back end. CLKOUT held (TSCFGH.TSINFO_DBCI) for unknown data section          */
+/*     or DVB-CI: DRN is help (CLKOUTnCFG.CLKOUT_XOR) for unknown data section                        */
+/*   in both STRUT is high for first byte of packet                                                   */
+/*   rate compensation is TSCFGH.TSFIFO_DVBCI                                                         */
+/*                                                                                                    */
 /*   All of this is set in the register init.                                                         */
 /*   demod: STV0910_DEMOD_TOP | STV0910_DEMOD_BOTTOM: which demodulator is being read                 */
 /*  return: error state                                                                               */
@@ -486,7 +492,7 @@ uint8_t stv0910_read_scan_state(uint8_t demod, uint8_t *state) {
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
 
-    if (err==ERROR_NONE) err=stv0910_read_reg_field((demod==STV0910_DEMOD_TOP ? 
+    if (err==ERROR_NONE) err=stv0910_read_reg_field((demod==STV0910_DEMOD_TOP ?
                                   FSTV0910_P2_HEADER_MODE : FSTV0910_P1_HEADER_MODE), state);
 
     if (err!=ERROR_NONE) printf("ERROR: STV0910 read scan state\n");
@@ -519,7 +525,7 @@ uint8_t stv0910_init_regs() {
     /* next we initialise all the registers in the list */
     do {
         if (err==ERROR_NONE) err=stv0910_write_reg(STV0910DefVal[i].reg, STV0910DefVal[i].val);
-    }        
+    }
     while (STV0910DefVal[i++].reg!=RSTV0910_TSTTSRS);
 
     /* finally (from ST example code) reset the LDPC decoder */
@@ -575,4 +581,3 @@ uint8_t stv0910_init(uint32_t sr1, uint32_t sr2) {
 
     return err;
 }
-
